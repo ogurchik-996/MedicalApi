@@ -71,6 +71,9 @@ public class PatientsController : ControllerBase
         {
             return NotFound();
         }
+        // Справки и записи на приём без пациента никому не нужны, удаляем их вместе с ним
+        SpravkiController.Spravki.RemoveAll(s => s.PatientId == id);
+        AppointmentsController.Appointments.RemoveAll(a => a.PatientId == id);
         Patients.Remove(patient);
         return NoContent();
     }

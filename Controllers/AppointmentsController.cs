@@ -9,10 +9,25 @@ public class AppointmentsController : ControllerBase
 {
     public static List<Appointment> Appointments = new List<Appointment>();
 
+    // GET /api/appointments?patientId=1&doctorName=Иванова&date=2026-11-10, все фильтры необязательные.
+    // Записи отсортированы по времени, так удобнее смотреть расписание
     [HttpGet]
-    public List<Appointment> GetAll()
+    public List<Appointment> GetAll(int? patientId, string? doctorName, DateTime? date)
     {
-        return Appointments;
+        IEnumerable<Appointment> result = Appointments;
+        if (patientId != null)
+        {
+            result = result.Where(a => a.PatientId == patientId);
+        }
+        if (!string.IsNullOrWhiteSpace(doctorName))
+        {
+            result = result.Where(a => a.DoctorName.ToLower().Contains(doctorName.Trim().ToLower()));
+        }
+        if (date != null)
+        {
+            result = result.Where(a => a.StartTime.Date == date.Value.Date);
+        }
+        return result.OrderBy(a => a.StartTime).ToList();
     }
 
     [HttpGet("{id}")]

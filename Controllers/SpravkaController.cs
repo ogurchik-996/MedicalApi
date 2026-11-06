@@ -9,10 +9,56 @@ public class SpravkiController : ControllerBase
 {
     public static List<Spravka> Spravki = new List<Spravka>();
 
+    // GET /api/spravki?patientId=3&spravkaTypeId=1, оба фильтра необязательные
     [HttpGet]
-    public List<Spravka> GetAll()
+    public List<Spravka> GetAll(int? patientId, int? spravkaTypeId)
     {
-        return Spravki;
+        IEnumerable<Spravka> result = Spravki;
+        if (patientId != null)
+        {
+            result = result.Where(s => s.PatientId == patientId);
+        }
+        if (spravkaTypeId != null)
+        {
+            result = result.Where(s => s.SpravkaTypeId == spravkaTypeId);
+        }
+        return result.ToList();
+    }
+
+    // GET /api/spravki/stats?from=2026-11-01&to=2026-11-30, даты необязательные
+    [HttpGet("stats")]
+    public ActionResult<SpravkaStats> GetStats(DateTime? from, DateTime? to)
+    {
+        if (from != null && to != null && from > to)
+        {
+            return BadRequest("Дата «с» должна быть не позже даты «по»");
+        }
+        IEnumerable<Spravka> selected = Spravki;
+        if (from != null)
+        {
+            selected = selected.Where(s => s.IssueDate >= from.Value.Date);
+        }
+        if (to != null)
+        {
+            selected = selected.Where(s => s.IssueDate <= to.Value.Date);
+        }
+        List<Spravka> list = selected.ToList();
+        return new SpravkaStats
+        {
+            TotalCount = list.Count,
+            TotalSum = list.Sum(s => s.Price),
+            ByType = list
+                .GroupBy(s => s.SpravkaTypeId)
+                .Select(g => new SpravkaTypeStats
+                {
+                    SpravkaTypeId = g.Key,
+                    Name = g.First().Name,
+                    Count = g.Count(),
+                    Sum = g.Sum(s => s.Price),
+                })
+                .OrderByDescending(t => t.Sum)
+                .ToList(),
+        };
     }
 
     [HttpGet("{id}")]
@@ -80,6 +126,11 @@ public class SpravkiController : ControllerBase
             return NotFound();
         }
         Spravki.Remove(spravka);
+        // Записи на приём остаются, только теряют ссылку на удалённую справку
+        foreach (Appointment appointment in AppointmentsController.Appointments.Where(a => a.SpravkaId == id))
+        {
+            appointment.SpravkaId = null;
+        }
         return NoContent();
     }
 
