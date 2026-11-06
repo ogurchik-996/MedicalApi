@@ -86,6 +86,17 @@ public class PatientsController : ControllerBase
         return SpravkiController.Spravki.Where(s => s.PatientId == id).ToList();
     }
 
+    [HttpGet("{id}/appointments")]
+    public ActionResult<List<Appointment>> GetAppointments(int id)
+    {
+        Patient? patient = Patients.FirstOrDefault(p => p.Id == id);
+        if (patient == null)
+        {
+            return NotFound();
+        }
+        return AppointmentsController.Appointments.Where(a => a.PatientId == id).ToList();
+    }
+
     // id: пациент, которого редактируем (0 при создании), чтобы ИИН не считался дублем самого себя
     private string? Validate(Patient patient, int id)
     {
