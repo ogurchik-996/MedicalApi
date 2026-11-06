@@ -34,7 +34,12 @@ public class SpravkiController : ControllerBase
         {
             return BadRequest(error);
         }
+        SpravkaType type = SpravkaTypesController.Types.First(t => t.Id == spravka.SpravkaTypeId);
         spravka.Id = Spravki.Count + 1;
+        spravka.Name = type.Name;
+        spravka.Price = type.Price;
+        spravka.IssueDate = DateTime.Today;
+        spravka.ValidUntil = spravka.IssueDate.AddDays(type.ValidDays);
         Spravki.Add(spravka);
         return CreatedAtAction(nameof(GetById), new { id = spravka.Id }, spravka);
     }
@@ -52,9 +57,17 @@ public class SpravkiController : ControllerBase
         {
             return BadRequest(error);
         }
-        existing.Name = spravka.Name;
         existing.PatientId = spravka.PatientId;
-        existing.Price = spravka.Price;
+        // Если вид справки не меняли, оставляем цену, по которой её выписали,
+        // даже если с тех пор цена в каталоге изменилась
+        if (existing.SpravkaTypeId != spravka.SpravkaTypeId)
+        {
+            SpravkaType type = SpravkaTypesController.Types.First(t => t.Id == spravka.SpravkaTypeId);
+            existing.SpravkaTypeId = type.Id;
+            existing.Name = type.Name;
+            existing.Price = type.Price;
+            existing.ValidUntil = existing.IssueDate.AddDays(type.ValidDays);
+        }
         return Ok(existing);
     }
 
@@ -72,26 +85,19 @@ public class SpravkiController : ControllerBase
 
     private string? Validate(Spravka spravka)
     {
-        if (string.IsNullOrWhiteSpace(spravka.Name))
-        {
-            return "Укажите название справки";
-        }
-        if (spravka.Name.Length > 100)
-        {
-            return "Название справки должно быть не длиннее 100 символов";
-        }
-        if (spravka.Price <= 0)
-        {
-            return "Цена должна быть больше 0";
-        }
-        if (spravka.Price > 1000000)
-        {
-            return "Цена должна быть не больше 1 000 000 тенге";
-        }
         Patient? patient = PatientsController.Patients.FirstOrDefault(p => p.Id == spravka.PatientId);
         if (patient == null)
         {
             return $"Пациент с номером {spravka.PatientId} не найден. Сначала зарегистрируйте пациента в картотеке";
+        }
+        SpravkaType? type = SpravkaTypesController.Types.FirstOrDefault(t => t.Id == spravka.SpravkaTypeId);
+        if (type == null)
+        {
+            return $"Вид справки с номером {spravka.SpravkaTypeId} не найден. Выберите вид справки из каталога";
+        }
+        if (type.ForChildren && patient.GetAge() >= 18)
+        {
+            return $"«{type.Name}» выдаётся только детям до 18 лет, а пациенту уже исполнилось 18";
         }
         return null;
     }

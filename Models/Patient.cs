@@ -11,4 +11,14 @@ public class Patient
     public bool IsMale { get; set; }
     public int Uchastok { get; set; }
     public bool HasInsurance { get; set; }
+
+    public int GetAge()
+    {
+        int age = DateTime.Today.Year - BirthDate.Year;
+        if (BirthDate.Date > DateTime.Today.AddYears(-age))
+        {
+            age--;
+        }
+        return age;
+    }
 }
