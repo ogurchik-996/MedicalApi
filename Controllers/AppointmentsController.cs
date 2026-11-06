@@ -9,6 +9,9 @@ public class AppointmentsController : ControllerBase
 {
     public static List<Appointment> Appointments = new List<Appointment>();
 
+    // Счётчик только растёт: Id удалённых записей не достаются новым
+    private static int _nextId = 1;
+
     // GET /api/appointments?patientId=1&doctorName=Иванова&date=2026-11-10, все фильтры необязательные.
     // Записи отсортированы по времени, так удобнее смотреть расписание
     [HttpGet]
@@ -31,6 +34,8 @@ public class AppointmentsController : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [ProducesResponseType<Appointment>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<Appointment> GetById(int id)
     {
         Appointment? appointment = Appointments.FirstOrDefault(a => a.Id == id);
@@ -42,6 +47,8 @@ public class AppointmentsController : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType<Appointment>(StatusCodes.Status201Created)]
+    [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
     public ActionResult<Appointment> Create(Appointment appointment)
     {
         string? error = Validate(appointment, 0);
@@ -49,12 +56,15 @@ public class AppointmentsController : ControllerBase
         {
             return BadRequest(error);
         }
-        appointment.Id = Appointments.Count + 1;
+        appointment.Id = _nextId++;
         Appointments.Add(appointment);
         return CreatedAtAction(nameof(GetById), new { id = appointment.Id }, appointment);
     }
 
     [HttpPut("{id}")]
+    [ProducesResponseType<Appointment>(StatusCodes.Status200OK)]
+    [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<Appointment> Update(int id, Appointment appointment)
     {
         Appointment? existing = Appointments.FirstOrDefault(a => a.Id == id);
@@ -79,6 +89,8 @@ public class AppointmentsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult Delete(int id)
     {
         Appointment? appointment = Appointments.FirstOrDefault(a => a.Id == id);

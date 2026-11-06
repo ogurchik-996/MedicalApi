@@ -9,6 +9,9 @@ public class SpravkiController : ControllerBase
 {
     public static List<Spravka> Spravki = new List<Spravka>();
 
+    // Счётчик только растёт: Id удалённых записей не достаются новым
+    private static int _nextId = 1;
+
     // GET /api/spravki?patientId=3&spravkaTypeId=1, оба фильтра необязательные
     [HttpGet]
     public List<Spravka> GetAll(int? patientId, int? spravkaTypeId)
@@ -27,6 +30,8 @@ public class SpravkiController : ControllerBase
 
     // GET /api/spravki/stats?from=2026-11-01&to=2026-11-30, даты необязательные
     [HttpGet("stats")]
+    [ProducesResponseType<SpravkaStats>(StatusCodes.Status200OK)]
+    [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
     public ActionResult<SpravkaStats> GetStats(DateTime? from, DateTime? to)
     {
         if (from != null && to != null && from > to)
@@ -62,6 +67,8 @@ public class SpravkiController : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [ProducesResponseType<Spravka>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<Spravka> GetById(int id)
     {
         Spravka? spravka = Spravki.FirstOrDefault(s => s.Id == id);
@@ -73,6 +80,8 @@ public class SpravkiController : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType<Spravka>(StatusCodes.Status201Created)]
+    [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
     public ActionResult<Spravka> Create(Spravka spravka)
     {
         string? error = Validate(spravka);
@@ -81,7 +90,7 @@ public class SpravkiController : ControllerBase
             return BadRequest(error);
         }
         SpravkaType type = SpravkaTypesController.Types.First(t => t.Id == spravka.SpravkaTypeId);
-        spravka.Id = Spravki.Count + 1;
+        spravka.Id = _nextId++;
         spravka.Name = type.Name;
         spravka.Price = type.Price;
         spravka.IssueDate = DateTime.Today;
@@ -91,6 +100,9 @@ public class SpravkiController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [ProducesResponseType<Spravka>(StatusCodes.Status200OK)]
+    [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<Spravka> Update(int id, Spravka spravka)
     {
         Spravka? existing = Spravki.FirstOrDefault(s => s.Id == id);
@@ -118,6 +130,8 @@ public class SpravkiController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult Delete(int id)
     {
         Spravka? spravka = Spravki.FirstOrDefault(s => s.Id == id);

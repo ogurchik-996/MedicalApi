@@ -17,6 +17,9 @@ public class SpravkaTypesController : ControllerBase
         new SpravkaType { Id = 6, Name = "Справка в спортивную секцию", Price = 250, ValidDays = 365, NeedsDoctorExam = false, ForChildren = true },
     };
 
+    // Счётчик только растёт: Id удалённых видов не достаются новым
+    private static int _nextId = Types.Max(t => t.Id) + 1;
+
     [HttpGet]
     public List<SpravkaType> GetAll()
     {
@@ -24,6 +27,8 @@ public class SpravkaTypesController : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [ProducesResponseType<SpravkaType>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<SpravkaType> GetById(int id)
     {
         SpravkaType? type = Types.FirstOrDefault(t => t.Id == id);
@@ -35,6 +40,8 @@ public class SpravkaTypesController : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType<SpravkaType>(StatusCodes.Status201Created)]
+    [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
     public ActionResult<SpravkaType> Create(SpravkaType type)
     {
         string? error = Validate(type, 0);
@@ -42,12 +49,15 @@ public class SpravkaTypesController : ControllerBase
         {
             return BadRequest(error);
         }
-        type.Id = Types.Count + 1;
+        type.Id = _nextId++;
         Types.Add(type);
         return CreatedAtAction(nameof(GetById), new { id = type.Id }, type);
     }
 
     [HttpPut("{id}")]
+    [ProducesResponseType<SpravkaType>(StatusCodes.Status200OK)]
+    [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<SpravkaType> Update(int id, SpravkaType type)
     {
         SpravkaType? existing = Types.FirstOrDefault(t => t.Id == id);
@@ -69,6 +79,9 @@ public class SpravkaTypesController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult Delete(int id)
     {
         SpravkaType? type = Types.FirstOrDefault(t => t.Id == id);

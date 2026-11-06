@@ -9,6 +9,9 @@ public class PatientsController : ControllerBase
 {
     public static List<Patient> Patients = new List<Patient>();
 
+    // Счётчик только растёт: Id удалённых записей не достаются новым
+    private static int _nextId = 1;
+
     [HttpGet]
     public List<Patient> GetAll()
     {
@@ -16,6 +19,8 @@ public class PatientsController : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [ProducesResponseType<Patient>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<Patient> GetById(int id)
     {
         Patient? patient = Patients.FirstOrDefault(p => p.Id == id);
@@ -27,6 +32,8 @@ public class PatientsController : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType<Patient>(StatusCodes.Status201Created)]
+    [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
     public ActionResult<Patient> Create(Patient patient)
     {
         string? error = Validate(patient, 0);
@@ -34,12 +41,15 @@ public class PatientsController : ControllerBase
         {
             return BadRequest(error);
         }
-        patient.Id = Patients.Count + 1;
+        patient.Id = _nextId++;
         Patients.Add(patient);
         return CreatedAtAction(nameof(GetById), new { id = patient.Id }, patient);
     }
 
     [HttpPut("{id}")]
+    [ProducesResponseType<Patient>(StatusCodes.Status200OK)]
+    [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<Patient> Update(int id, Patient patient)
     {
         Patient? existing = Patients.FirstOrDefault(p => p.Id == id);
@@ -64,6 +74,8 @@ public class PatientsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult Delete(int id)
     {
         Patient? patient = Patients.FirstOrDefault(p => p.Id == id);
@@ -79,6 +91,8 @@ public class PatientsController : ControllerBase
     }
 
     [HttpGet("{id}/spravki")]
+    [ProducesResponseType<List<Spravka>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<List<Spravka>> GetSpravki(int id)
     {
         Patient? patient = Patients.FirstOrDefault(p => p.Id == id);
@@ -90,6 +104,8 @@ public class PatientsController : ControllerBase
     }
 
     [HttpGet("{id}/appointments")]
+    [ProducesResponseType<List<Appointment>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<List<Appointment>> GetAppointments(int id)
     {
         Patient? patient = Patients.FirstOrDefault(p => p.Id == id);
