@@ -33,4 +33,30 @@ public class SpravkiController : ControllerBase
         _spravki.Add(spravka);
         return CreatedAtAction(nameof(GetById), new { id = spravka.Id }, spravka);
     }
+
+    [HttpPut("{id}")]
+    public ActionResult<Spravka> Update(int id, Spravka spravka)
+    {
+        Spravka? existing = _spravki.FirstOrDefault(s => s.Id == id);
+        if (existing == null)
+        {
+            return NotFound();
+        }
+        existing.Name = spravka.Name;
+        existing.PatientName = spravka.PatientName;
+        existing.Price = spravka.Price;
+        return Ok(existing);
+    }
+
+    [HttpDelete("{id}")]
+    public ActionResult Delete(int id)
+    {
+        Spravka? spravka = _spravki.FirstOrDefault(s => s.Id == id);
+        if (spravka == null)
+        {
+            return NotFound();
+        }
+        _spravki.Remove(spravka);
+        return NoContent();
+    }
 }
