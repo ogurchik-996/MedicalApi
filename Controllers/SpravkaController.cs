@@ -29,6 +29,11 @@ public class SpravkiController : ControllerBase
     [HttpPost]
     public ActionResult<Spravka> Create(Spravka spravka)
     {
+        string? error = Validate(spravka);
+        if (error != null)
+        {
+            return BadRequest(error);
+        }
         spravka.Id = _spravki.Count + 1;
         _spravki.Add(spravka);
         return CreatedAtAction(nameof(GetById), new { id = spravka.Id }, spravka);
@@ -41,6 +46,11 @@ public class SpravkiController : ControllerBase
         if (existing == null)
         {
             return NotFound();
+        }
+        string? error = Validate(spravka);
+        if (error != null)
+        {
+            return BadRequest(error);
         }
         existing.Name = spravka.Name;
         existing.PatientName = spravka.PatientName;
@@ -58,5 +68,34 @@ public class SpravkiController : ControllerBase
         }
         _spravki.Remove(spravka);
         return NoContent();
+    }
+
+    private string? Validate(Spravka spravka)
+    {
+        if (string.IsNullOrWhiteSpace(spravka.Name))
+        {
+            return "Укажите название справки";
+        }
+        if (spravka.Name.Length > 100)
+        {
+            return "Название справки должно быть не длиннее 100 символов";
+        }
+        if (string.IsNullOrWhiteSpace(spravka.PatientName))
+        {
+            return "Укажите имя пациента";
+        }
+        if (spravka.PatientName.Length > 100)
+        {
+            return "Имя пациента должно быть не длиннее 100 символов";
+        }
+        if (spravka.Price <= 0)
+        {
+            return "Цена должна быть больше 0";
+        }
+        if (spravka.Price > 1000000)
+        {
+            return "Цена должна быть не больше 1 000 000 тенге";
+        }
+        return null;
     }
 }
