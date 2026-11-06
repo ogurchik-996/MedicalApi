@@ -1,3 +1,5 @@
+namespace MedicalApi.Models;
+
 public class Spravka
 {
     public int Id { get; set; }

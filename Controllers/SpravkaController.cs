@@ -1,4 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using MedicalApi.Models;
+
+namespace MedicalApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
