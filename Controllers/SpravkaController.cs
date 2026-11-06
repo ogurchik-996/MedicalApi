@@ -7,18 +7,18 @@ namespace MedicalApi.Controllers;
 [Route("api/[controller]")]
 public class SpravkiController : ControllerBase
 {
-    private static List<Spravka> _spravki = new List<Spravka>();
+    public static List<Spravka> Spravki = new List<Spravka>();
 
     [HttpGet]
     public List<Spravka> GetAll()
     {
-        return _spravki;
+        return Spravki;
     }
 
     [HttpGet("{id}")]
     public ActionResult<Spravka> GetById(int id)
     {
-        Spravka? spravka = _spravki.FirstOrDefault(s => s.Id == id);
+        Spravka? spravka = Spravki.FirstOrDefault(s => s.Id == id);
         if (spravka == null)
         {
             return NotFound();
@@ -34,15 +34,15 @@ public class SpravkiController : ControllerBase
         {
             return BadRequest(error);
         }
-        spravka.Id = _spravki.Count + 1;
-        _spravki.Add(spravka);
+        spravka.Id = Spravki.Count + 1;
+        Spravki.Add(spravka);
         return CreatedAtAction(nameof(GetById), new { id = spravka.Id }, spravka);
     }
 
     [HttpPut("{id}")]
     public ActionResult<Spravka> Update(int id, Spravka spravka)
     {
-        Spravka? existing = _spravki.FirstOrDefault(s => s.Id == id);
+        Spravka? existing = Spravki.FirstOrDefault(s => s.Id == id);
         if (existing == null)
         {
             return NotFound();
@@ -53,7 +53,7 @@ public class SpravkiController : ControllerBase
             return BadRequest(error);
         }
         existing.Name = spravka.Name;
-        existing.PatientName = spravka.PatientName;
+        existing.PatientId = spravka.PatientId;
         existing.Price = spravka.Price;
         return Ok(existing);
     }
@@ -61,12 +61,12 @@ public class SpravkiController : ControllerBase
     [HttpDelete("{id}")]
     public ActionResult Delete(int id)
     {
-        Spravka? spravka = _spravki.FirstOrDefault(s => s.Id == id);
+        Spravka? spravka = Spravki.FirstOrDefault(s => s.Id == id);
         if (spravka == null)
         {
             return NotFound();
         }
-        _spravki.Remove(spravka);
+        Spravki.Remove(spravka);
         return NoContent();
     }
 
@@ -80,14 +80,6 @@ public class SpravkiController : ControllerBase
         {
             return "Название справки должно быть не длиннее 100 символов";
         }
-        if (string.IsNullOrWhiteSpace(spravka.PatientName))
-        {
-            return "Укажите имя пациента";
-        }
-        if (spravka.PatientName.Length > 100)
-        {
-            return "Имя пациента должно быть не длиннее 100 символов";
-        }
         if (spravka.Price <= 0)
         {
             return "Цена должна быть больше 0";
@@ -95,6 +87,11 @@ public class SpravkiController : ControllerBase
         if (spravka.Price > 1000000)
         {
             return "Цена должна быть не больше 1 000 000 тенге";
+        }
+        Patient? patient = PatientsController.Patients.FirstOrDefault(p => p.Id == spravka.PatientId);
+        if (patient == null)
+        {
+            return $"Пациент с номером {spravka.PatientId} не найден. Сначала зарегистрируйте пациента в картотеке";
         }
         return null;
     }

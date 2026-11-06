@@ -7,18 +7,18 @@ namespace MedicalApi.Controllers;
 [Route("api/[controller]")]
 public class PatientsController : ControllerBase
 {
-    private static List<Patient> _patients = new List<Patient>();
+    public static List<Patient> Patients = new List<Patient>();
 
     [HttpGet]
     public List<Patient> GetAll()
     {
-        return _patients;
+        return Patients;
     }
 
     [HttpGet("{id}")]
     public ActionResult<Patient> GetById(int id)
     {
-        Patient? patient = _patients.FirstOrDefault(p => p.Id == id);
+        Patient? patient = Patients.FirstOrDefault(p => p.Id == id);
         if (patient == null)
         {
             return NotFound();
@@ -34,15 +34,15 @@ public class PatientsController : ControllerBase
         {
             return BadRequest(error);
         }
-        patient.Id = _patients.Count + 1;
-        _patients.Add(patient);
+        patient.Id = Patients.Count + 1;
+        Patients.Add(patient);
         return CreatedAtAction(nameof(GetById), new { id = patient.Id }, patient);
     }
 
     [HttpPut("{id}")]
     public ActionResult<Patient> Update(int id, Patient patient)
     {
-        Patient? existing = _patients.FirstOrDefault(p => p.Id == id);
+        Patient? existing = Patients.FirstOrDefault(p => p.Id == id);
         if (existing == null)
         {
             return NotFound();
@@ -66,13 +66,24 @@ public class PatientsController : ControllerBase
     [HttpDelete("{id}")]
     public ActionResult Delete(int id)
     {
-        Patient? patient = _patients.FirstOrDefault(p => p.Id == id);
+        Patient? patient = Patients.FirstOrDefault(p => p.Id == id);
         if (patient == null)
         {
             return NotFound();
         }
-        _patients.Remove(patient);
+        Patients.Remove(patient);
         return NoContent();
+    }
+
+    [HttpGet("{id}/spravki")]
+    public ActionResult<List<Spravka>> GetSpravki(int id)
+    {
+        Patient? patient = Patients.FirstOrDefault(p => p.Id == id);
+        if (patient == null)
+        {
+            return NotFound();
+        }
+        return SpravkiController.Spravki.Where(s => s.PatientId == id).ToList();
     }
 
     // id: пациент, которого редактируем (0 при создании), чтобы ИИН не считался дублем самого себя
@@ -102,7 +113,7 @@ public class PatientsController : ControllerBase
         {
             return "ИИН должен состоять ровно из 12 цифр";
         }
-        if (_patients.Any(p => p.Iin == patient.Iin && p.Id != id))
+        if (Patients.Any(p => p.Iin == patient.Iin && p.Id != id))
         {
             return "Пациент с таким ИИН уже есть в картотеке";
         }
