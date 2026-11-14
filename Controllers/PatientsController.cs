@@ -88,6 +88,7 @@ public class PatientsController : ControllerBase
 
     [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> Delete(int id)
     {
@@ -96,6 +97,14 @@ public class PatientsController : ControllerBase
         {
             return NotFound();
         }
+        // Справки это медицинские документы, их нельзя терять вместе с пациентом.
+        // База тоже не даст удалить (ON DELETE RESTRICT), но тогда был бы 500 вместо понятного ответа
+        int spravki = await _db.Spravki.CountAsync(s => s.PatientId == id);
+        if (spravki > 0)
+        {
+            return BadRequest($"Нельзя удалить пациента {patient.Name}: у него выписано справок: {spravki}. Справки это медицинские документы");
+        }
+        // Записи на приём удаляются вместе с пациентом (ON DELETE CASCADE)
         _db.Patients.Remove(patient);
         await _db.SaveChangesAsync();
         return NoContent();

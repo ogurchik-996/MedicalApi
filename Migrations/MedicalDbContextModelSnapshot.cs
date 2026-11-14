@@ -194,13 +194,13 @@ namespace MedicalApi.Migrations
                     b.HasOne("MedicalApi.Models.Patient", null)
                         .WithMany()
                         .HasForeignKey("PatientId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("MedicalApi.Models.SpravkaType", null)
                         .WithMany()
                         .HasForeignKey("SpravkaTypeId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 #pragma warning restore 612, 618

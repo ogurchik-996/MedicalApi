@@ -20,13 +20,17 @@ public class MedicalDbContext : DbContext
         modelBuilder.Entity<Spravka>()
             .HasOne<Patient>()
             .WithMany()
-            .HasForeignKey(s => s.PatientId);
+            .HasForeignKey(s => s.PatientId)
+            // справки это медицинские документы: пациента со справками удалить нельзя
+            .OnDelete(DeleteBehavior.Restrict);
 
         // у справки один вид, у вида много справок, связь через SpravkaTypeId
         modelBuilder.Entity<Spravka>()
             .HasOne<SpravkaType>()
             .WithMany()
-            .HasForeignKey(s => s.SpravkaTypeId);
+            .HasForeignKey(s => s.SpravkaTypeId)
+            // вид справки, по которому уже выписаны справки, удалить нельзя
+            .OnDelete(DeleteBehavior.Restrict);
 
         // у записи на приём один пациент, у пациента много записей
         modelBuilder.Entity<Appointment>()
