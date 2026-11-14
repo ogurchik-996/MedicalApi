@@ -11,6 +11,7 @@ public class Patient
     public bool IsMale { get; set; }
     public int Uchastok { get; set; }
     public bool HasInsurance { get; set; }
+    public string? Email { get; set; }
 
     public int GetAge()
     {

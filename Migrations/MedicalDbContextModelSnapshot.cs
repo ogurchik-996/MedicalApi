@@ -81,6 +81,9 @@ namespace MedicalApi.Migrations
                     b.Property<DateOnly>("BirthDate")
                         .HasColumnType("date");
 
+                    b.Property<string>("Email")
+                        .HasColumnType("text");
+
                     b.Property<bool>("HasInsurance")
                         .HasColumnType("boolean");
 
