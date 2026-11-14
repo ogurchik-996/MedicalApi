@@ -1,5 +1,7 @@
+using MedicalApi.Data;
 using MedicalApi.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace MedicalApi.Controllers;
 
@@ -7,38 +9,42 @@ namespace MedicalApi.Controllers;
 [Route("api/[controller]")]
 public class AppointmentsController : ControllerBase
 {
-    public static List<Appointment> Appointments = new List<Appointment>();
+    private readonly MedicalDbContext _db;
 
-    // Счётчик только растёт: Id удалённых записей не достаются новым
-    private static int _nextId = 1;
+    public AppointmentsController(MedicalDbContext db)
+    {
+        _db = db;
+    }
 
     // GET /api/appointments?patientId=1&doctorName=Иванова&date=2026-11-10, все фильтры необязательные.
     // Записи отсортированы по времени, так удобнее смотреть расписание
     [HttpGet]
-    public List<Appointment> GetAll(int? patientId, string? doctorName, DateTime? date)
+    public async Task<List<Appointment>> GetAll(int? patientId, string? doctorName, DateOnly? date)
     {
-        IEnumerable<Appointment> result = Appointments;
+        IQueryable<Appointment> query = _db.Appointments;
         if (patientId != null)
         {
-            result = result.Where(a => a.PatientId == patientId);
+            query = query.Where(a => a.PatientId == patientId);
         }
         if (!string.IsNullOrWhiteSpace(doctorName))
         {
-            result = result.Where(a => a.DoctorName.ToLower().Contains(doctorName.Trim().ToLower()));
+            query = query.Where(a => EF.Functions.ILike(a.DoctorName, $"%{doctorName.Trim()}%"));
         }
         if (date != null)
         {
-            result = result.Where(a => a.StartTime.Date == date.Value.Date);
+            DateTime dayStart = date.Value.ToDateTime(TimeOnly.MinValue);
+            DateTime dayEnd = dayStart.AddDays(1);
+            query = query.Where(a => a.StartTime >= dayStart && a.StartTime < dayEnd);
         }
-        return result.OrderBy(a => a.StartTime).ToList();
+        return await query.OrderBy(a => a.StartTime).ToListAsync();
     }
 
     [HttpGet("{id}")]
     [ProducesResponseType<Appointment>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<Appointment> GetById(int id)
+    public async Task<ActionResult<Appointment>> GetById(int id)
     {
-        Appointment? appointment = Appointments.FirstOrDefault(a => a.Id == id);
+        Appointment? appointment = await _db.Appointments.FirstOrDefaultAsync(a => a.Id == id);
         if (appointment == null)
         {
             return NotFound();
@@ -49,15 +55,17 @@ public class AppointmentsController : ControllerBase
     [HttpPost]
     [ProducesResponseType<Appointment>(StatusCodes.Status201Created)]
     [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
-    public ActionResult<Appointment> Create(Appointment appointment)
+    public async Task<ActionResult<Appointment>> Create(Appointment appointment)
     {
-        string? error = Validate(appointment, 0);
+        string? error = await Validate(appointment, 0);
         if (error != null)
         {
             return BadRequest(error);
         }
-        appointment.Id = _nextId++;
-        Appointments.Add(appointment);
+        // Номер выдаёт база, Id из тела запроса игнорируем
+        appointment.Id = 0;
+        _db.Appointments.Add(appointment);
+        await _db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetById), new { id = appointment.Id }, appointment);
     }
 
@@ -65,14 +73,14 @@ public class AppointmentsController : ControllerBase
     [ProducesResponseType<Appointment>(StatusCodes.Status200OK)]
     [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<Appointment> Update(int id, Appointment appointment)
+    public async Task<ActionResult<Appointment>> Update(int id, Appointment appointment)
     {
-        Appointment? existing = Appointments.FirstOrDefault(a => a.Id == id);
+        Appointment? existing = await _db.Appointments.FirstOrDefaultAsync(a => a.Id == id);
         if (existing == null)
         {
             return NotFound();
         }
-        string? error = Validate(appointment, id);
+        string? error = await Validate(appointment, id);
         if (error != null)
         {
             return BadRequest(error);
@@ -85,28 +93,29 @@ public class AppointmentsController : ControllerBase
         existing.Complaint = appointment.Complaint;
         existing.IsCompleted = appointment.IsCompleted;
         existing.SpravkaId = appointment.SpravkaId;
+        await _db.SaveChangesAsync();
         return Ok(existing);
     }
 
     [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult Delete(int id)
+    public async Task<ActionResult> Delete(int id)
     {
-        Appointment? appointment = Appointments.FirstOrDefault(a => a.Id == id);
+        Appointment? appointment = await _db.Appointments.FirstOrDefaultAsync(a => a.Id == id);
         if (appointment == null)
         {
             return NotFound();
         }
-        Appointments.Remove(appointment);
+        _db.Appointments.Remove(appointment);
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 
     // id: запись, которую редактируем (0 при создании), чтобы она не конфликтовала сама с собой
-    private string? Validate(Appointment appointment, int id)
+    private async Task<string?> Validate(Appointment appointment, int id)
     {
-        Patient? patient = PatientsController.Patients.FirstOrDefault(p => p.Id == appointment.PatientId);
-        if (patient == null)
+        if (!await _db.Patients.AnyAsync(p => p.Id == appointment.PatientId))
         {
             return $"Пациент с номером {appointment.PatientId} не найден. Сначала зарегистрируйте пациента в картотеке";
         }
@@ -160,7 +169,7 @@ public class AppointmentsController : ControllerBase
         }
         if (appointment.SpravkaId != null)
         {
-            Spravka? spravka = SpravkiController.Spravki.FirstOrDefault(s => s.Id == appointment.SpravkaId);
+            Spravka? spravka = await _db.Spravki.FirstOrDefaultAsync(s => s.Id == appointment.SpravkaId);
             if (spravka == null)
             {
                 return $"Справка с номером {appointment.SpravkaId} не найдена";
@@ -171,11 +180,11 @@ public class AppointmentsController : ControllerBase
             }
         }
         string doctor = appointment.DoctorName.Trim().ToLower();
-        if (Appointments.Any(a => a.Id != id && a.StartTime == appointment.StartTime && a.DoctorName.Trim().ToLower() == doctor))
+        if (await _db.Appointments.AnyAsync(a => a.Id != id && a.StartTime == appointment.StartTime && a.DoctorName.Trim().ToLower() == doctor))
         {
             return $"У врача {appointment.DoctorName} на {appointment.StartTime:dd.MM.yyyy HH:mm} уже есть запись, выберите другое время";
         }
-        if (Appointments.Any(a => a.Id != id && a.StartTime == appointment.StartTime && a.PatientId == appointment.PatientId))
+        if (await _db.Appointments.AnyAsync(a => a.Id != id && a.StartTime == appointment.StartTime && a.PatientId == appointment.PatientId))
         {
             return $"Пациент уже записан на {appointment.StartTime:dd.MM.yyyy HH:mm} к другому врачу";
         }

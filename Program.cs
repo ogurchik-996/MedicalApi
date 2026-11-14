@@ -1,4 +1,10 @@
+using MedicalApi.Data;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<MedicalDbContext>(o =>
+    o.UseNpgsql(builder.Configuration.GetConnectionString("Medical")));
 
 // Add services to the container.
 

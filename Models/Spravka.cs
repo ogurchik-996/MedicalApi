@@ -9,6 +9,6 @@ public class Spravka
     public string Name { get; set; } = "";
     public decimal Price { get; set; }
     // Даты сервер ставит сам
-    public DateTime IssueDate { get; set; }
-    public DateTime ValidUntil { get; set; }
+    public DateOnly IssueDate { get; set; }
+    public DateOnly ValidUntil { get; set; }
 }

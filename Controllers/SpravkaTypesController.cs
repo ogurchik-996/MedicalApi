@@ -1,5 +1,7 @@
+using MedicalApi.Data;
 using MedicalApi.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace MedicalApi.Controllers;
 
@@ -7,31 +9,25 @@ namespace MedicalApi.Controllers;
 [Route("api/[controller]")]
 public class SpravkaTypesController : ControllerBase
 {
-    public static List<SpravkaType> Types = new List<SpravkaType>
-    {
-        new SpravkaType { Id = 1, Name = "Справка 083", Price = 100, ValidDays = 365, NeedsDoctorExam = true, ForChildren = false },
-        new SpravkaType { Id = 2, Name = "Санитарная книжка", Price = 750, ValidDays = 365, NeedsDoctorExam = true, ForChildren = false },
-        new SpravkaType { Id = 3, Name = "Справка в бассейн", Price = 300, ValidDays = 90, NeedsDoctorExam = true, ForChildren = false },
-        new SpravkaType { Id = 4, Name = "Справка 086 для поступления", Price = 500, ValidDays = 180, NeedsDoctorExam = true, ForChildren = false },
-        new SpravkaType { Id = 5, Name = "Справка в детский лагерь", Price = 200, ValidDays = 3, NeedsDoctorExam = true, ForChildren = true },
-        new SpravkaType { Id = 6, Name = "Справка в спортивную секцию", Price = 250, ValidDays = 365, NeedsDoctorExam = false, ForChildren = true },
-    };
+    private readonly MedicalDbContext _db;
 
-    // Счётчик только растёт: Id удалённых видов не достаются новым
-    private static int _nextId = Types.Max(t => t.Id) + 1;
+    public SpravkaTypesController(MedicalDbContext db)
+    {
+        _db = db;
+    }
 
     [HttpGet]
-    public List<SpravkaType> GetAll()
+    public async Task<List<SpravkaType>> GetAll()
     {
-        return Types;
+        return await _db.SpravkaTypes.OrderBy(t => t.Id).ToListAsync();
     }
 
     [HttpGet("{id}")]
     [ProducesResponseType<SpravkaType>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<SpravkaType> GetById(int id)
+    public async Task<ActionResult<SpravkaType>> GetById(int id)
     {
-        SpravkaType? type = Types.FirstOrDefault(t => t.Id == id);
+        SpravkaType? type = await _db.SpravkaTypes.FirstOrDefaultAsync(t => t.Id == id);
         if (type == null)
         {
             return NotFound();
@@ -42,15 +38,17 @@ public class SpravkaTypesController : ControllerBase
     [HttpPost]
     [ProducesResponseType<SpravkaType>(StatusCodes.Status201Created)]
     [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
-    public ActionResult<SpravkaType> Create(SpravkaType type)
+    public async Task<ActionResult<SpravkaType>> Create(SpravkaType type)
     {
-        string? error = Validate(type, 0);
+        string? error = await Validate(type, 0);
         if (error != null)
         {
             return BadRequest(error);
         }
-        type.Id = _nextId++;
-        Types.Add(type);
+        // Номер выдаёт база, Id из тела запроса игнорируем
+        type.Id = 0;
+        _db.SpravkaTypes.Add(type);
+        await _db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetById), new { id = type.Id }, type);
     }
 
@@ -58,14 +56,14 @@ public class SpravkaTypesController : ControllerBase
     [ProducesResponseType<SpravkaType>(StatusCodes.Status200OK)]
     [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<SpravkaType> Update(int id, SpravkaType type)
+    public async Task<ActionResult<SpravkaType>> Update(int id, SpravkaType type)
     {
-        SpravkaType? existing = Types.FirstOrDefault(t => t.Id == id);
+        SpravkaType? existing = await _db.SpravkaTypes.FirstOrDefaultAsync(t => t.Id == id);
         if (existing == null)
         {
             return NotFound();
         }
-        string? error = Validate(type, id);
+        string? error = await Validate(type, id);
         if (error != null)
         {
             return BadRequest(error);
@@ -75,6 +73,7 @@ public class SpravkaTypesController : ControllerBase
         existing.ValidDays = type.ValidDays;
         existing.NeedsDoctorExam = type.NeedsDoctorExam;
         existing.ForChildren = type.ForChildren;
+        await _db.SaveChangesAsync();
         return Ok(existing);
     }
 
@@ -82,23 +81,24 @@ public class SpravkaTypesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult Delete(int id)
+    public async Task<ActionResult> Delete(int id)
     {
-        SpravkaType? type = Types.FirstOrDefault(t => t.Id == id);
+        SpravkaType? type = await _db.SpravkaTypes.FirstOrDefaultAsync(t => t.Id == id);
         if (type == null)
         {
             return NotFound();
         }
-        int used = SpravkiController.Spravki.Count(s => s.SpravkaTypeId == id);
+        int used = await _db.Spravki.CountAsync(s => s.SpravkaTypeId == id);
         if (used > 0)
         {
             return BadRequest($"Нельзя удалить вид справки «{type.Name}»: по нему уже выписано справок: {used}");
         }
-        Types.Remove(type);
+        _db.SpravkaTypes.Remove(type);
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 
-    private string? Validate(SpravkaType type, int id)
+    private async Task<string?> Validate(SpravkaType type, int id)
     {
         if (string.IsNullOrWhiteSpace(type.Name))
         {
@@ -108,7 +108,8 @@ public class SpravkaTypesController : ControllerBase
         {
             return "Название вида справки должно быть не длиннее 100 символов";
         }
-        if (Types.Any(t => t.Name.Trim().ToLower() == type.Name.Trim().ToLower() && t.Id != id))
+        string name = type.Name.Trim().ToLower();
+        if (await _db.SpravkaTypes.AnyAsync(t => t.Name.Trim().ToLower() == name && t.Id != id))
         {
             return $"Вид справки «{type.Name}» уже есть в каталоге";
         }
